@@ -1,20 +1,21 @@
 package ui
 
 import androidx.compose.runtime.currentRecomposeScope
+import androidx.compose.runtime.mutableStateOf
 import base.BaseViewModel
 import kotlin.random.Random
 
 class MultiDimensionalListViewModel :
     BaseViewModel<MultiDimensionalListInternalEvent, MultiDimensionalListState>() {
     override fun createInitialState(): MultiDimensionalListState {
-        setExternalEvent(
-            ExternalEvent.ListEvent(
-                MultiDimensionalListExternalEvent.OnAddClicked
-            )
-        )
-
         return MultiDimensionalListState(
-            MultiDimensionalList("Undefined element", 0)
+            MultiDimensionalList(mutableStateOf("Undefined element"), mutableStateOf(0))
+        )
+    }
+
+    override fun createInitialExternalEvent(): ExternalEvent {
+        return ExternalEvent.ListEvent(
+            MultiDimensionalListExternalEvent.OnAddClicked
         )
     }
 
@@ -31,7 +32,7 @@ class MultiDimensionalListViewModel :
                 val state = currentState.multiDimensionalList
                 setExternalEvent(
                     ExternalEvent.ListEvent(
-                        MultiDimensionalListExternalEvent.OnChangeClicked(state.name, state.data)
+                        MultiDimensionalListExternalEvent.OnChangeClicked(state.name.value, state.data.value)
                     )
                 )
             }
@@ -57,15 +58,16 @@ class MultiDimensionalListViewModel :
         for (i: Int in 0..primaryListsAmount) {
             val secondaryListAmount = Random.nextInt(0, 3)
             val primaryList = MultiDimensionalListViewModel().apply {
-                currentState.multiDimensionalList.name = "$counter-th primaryList"
-                currentState.multiDimensionalList.data = counter
+                currentState.multiDimensionalList.name = mutableStateOf("$counter-th primaryList")
+                currentState.multiDimensionalList.data = mutableStateOf(counter)
                 currentState.multiDimensionalList.parent = this
             }
+            currentState.multiDimensionalList.lowerDimension.add(primaryList)
             counter++
             for (j: Int in 0..secondaryListAmount) {
                 val secondaryList = MultiDimensionalListViewModel().apply{
-                    currentState.multiDimensionalList.name = "$counter-th primaryList"
-                    currentState.multiDimensionalList.data = counter
+                    currentState.multiDimensionalList.name = mutableStateOf("$counter-th primaryList")
+                    currentState.multiDimensionalList.data = mutableStateOf(counter)
                     currentState.multiDimensionalList.parent = primaryList
                 }
                 primaryList.currentState.multiDimensionalList.lowerDimension.add(secondaryList)
@@ -80,15 +82,15 @@ class MultiDimensionalListViewModel :
                 when (val event = externalEvent.event) {
                     is ChangeTableExternalEvent.OnAddSubmitClicked -> {
                         val newElem = MultiDimensionalListViewModel().apply {
-                            currentState.multiDimensionalList.name = event.name
-                            currentState.multiDimensionalList.data = event.data
+                            currentState.multiDimensionalList.name.value = event.name
+                            currentState.multiDimensionalList.data.value = event.data
                             currentState.multiDimensionalList.parent = this
                         }
                         currentState.multiDimensionalList.lowerDimension.add(newElem)
                     }
                     is ChangeTableExternalEvent.OnChangeSubmitClicked -> {
-                        currentState.multiDimensionalList.name = event.newName
-                        currentState.multiDimensionalList.data = event.newData
+                        currentState.multiDimensionalList.name.value = event.newName
+                        currentState.multiDimensionalList.data.value = event.newData
                     }
                 }
             }

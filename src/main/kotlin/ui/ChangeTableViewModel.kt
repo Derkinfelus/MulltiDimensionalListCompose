@@ -18,6 +18,12 @@ class ChangeTableViewModel(defaultSub: SharedFlow<ExternalEvent>) :
         )
     }
 
+    override fun createInitialExternalEvent(): ExternalEvent {
+        return ExternalEvent.TableEvent(
+            ChangeTableExternalEvent.OnChangeSubmitClicked("", 0)
+        )
+    }
+
     override fun handleExternalEvent(externalEvent: ExternalEvent) {
         when (externalEvent) {
             is ExternalEvent.ListEvent -> {

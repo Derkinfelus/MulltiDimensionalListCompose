@@ -51,7 +51,10 @@ fun RecursiveListRender(viewModel: MultiDimensionalListViewModel) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(state.multiDimensionalList.name)
+            Text(state.multiDimensionalList.name.value)
+            Spacer(Modifier.width(10.dp))
+
+            Text(state.multiDimensionalList.data.value.toString())
             Spacer(Modifier.width(10.dp))
 
             Button({ viewModel.setInternalEvent(MultiDimensionalListInternalEvent.OnAddClicked) }) {
@@ -67,15 +70,19 @@ fun RecursiveListRender(viewModel: MultiDimensionalListViewModel) {
             Button({ viewModel.setInternalEvent(MultiDimensionalListInternalEvent.OnDeleteClicked) }) {
                 Text("Delete")
             }
+
+            Spacer(Modifier.width(10.dp))
+            Button({ viewModel.currentState.multiDimensionalList.name.value = "Shit" }
+            ) {
+                Text("Shit")
+            }
         }
     }
 
-    if (state.multiDimensionalList.lowerDimension.isEmpty()) {
+    if (state.multiDimensionalList.lowerDimension.isEmpty())
         return
-    }
-    for (i in state.multiDimensionalList.lowerDimension) {
+    for (i in state.multiDimensionalList.lowerDimension)
         RecursiveListRender(i)
-    }
 }
 
 @Preview
@@ -84,13 +91,12 @@ fun app() {
     MaterialTheme {
         val listViewModel = remember {
             MultiDimensionalListViewModel().apply {
-                currentState.multiDimensionalList.name = "Root"
+                currentState.multiDimensionalList.name.value = "Root"
                 initLowerDimensions()
             }
         }
-        val tableViewModel = remember {
-            ChangeTableViewModel(listViewModel.externalEvent)
-        }
+        val tableViewModel = ChangeTableViewModel(listViewModel.externalEvent)
+
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier.fillMaxWidth()
@@ -98,7 +104,7 @@ fun app() {
             Column(
                 horizontalAlignment = Alignment.Start
             ) {
-                TableRender(tableViewModel)
+
                 RecursiveListRender(listViewModel)
             }
         }

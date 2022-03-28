@@ -7,7 +7,9 @@ import ui.ExternalEvent
 abstract class BaseViewModel<Event : UiEvent, State : UiState> {
     var coroutineScope = CoroutineScope(Dispatchers.Main)
     private val initialState : State by lazy { createInitialState() }
+    private val initialExternalEvent : ExternalEvent by lazy { createInitialExternalEvent() }
     abstract fun createInitialState() : State
+    abstract fun createInitialExternalEvent() : ExternalEvent
 
     val currentState: State
         get() = uiState.value
@@ -18,7 +20,7 @@ abstract class BaseViewModel<Event : UiEvent, State : UiState> {
     private val _internalEvent : MutableSharedFlow<Event> = MutableSharedFlow()
     val internalEvent = _internalEvent.asSharedFlow()
 
-    private val _externalEventEmitter : MutableSharedFlow<ExternalEvent> = MutableSharedFlow()
+    private val _externalEventEmitter : MutableStateFlow<ExternalEvent> = MutableStateFlow(initialExternalEvent)
     val externalEvent: SharedFlow<ExternalEvent> = _externalEventEmitter.asSharedFlow()
 
     private val subscriptions = mutableListOf<Job>()
