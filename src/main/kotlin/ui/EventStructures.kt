@@ -15,8 +15,7 @@ sealed class MultiDimensionalListExternalEvent: UiEvent {
 }
 
 sealed class ChangeTableInternalEvent: UiEvent {
-    object OnAddSubmitClicked: ChangeTableInternalEvent()
-    object OnChangeSubmitClicked: ChangeTableInternalEvent()
+    object OnSubmitClicked: ChangeTableInternalEvent()
 }
 
 sealed class ChangeTableExternalEvent: UiEvent {

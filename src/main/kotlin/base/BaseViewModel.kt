@@ -1,9 +1,8 @@
 package base
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
+import ui.ExternalEvent
 
 abstract class BaseViewModel<Event : UiEvent, State : UiState> {
     var coroutineScope = CoroutineScope(Dispatchers.Main)
@@ -16,8 +15,13 @@ abstract class BaseViewModel<Event : UiEvent, State : UiState> {
     private val _uiState : MutableStateFlow<State> = MutableStateFlow(initialState)
     val uiState = _uiState.asStateFlow()
 
-    private val _event : MutableSharedFlow<Event> = MutableSharedFlow()
-    val event = _event.asSharedFlow()
+    private val _internalEvent : MutableSharedFlow<Event> = MutableSharedFlow()
+    val internalEvent = _internalEvent.asSharedFlow()
+
+    private val _externalEventEmitter : MutableSharedFlow<ExternalEvent> = MutableSharedFlow()
+    val externalEvent: SharedFlow<ExternalEvent> = _externalEventEmitter.asSharedFlow()
+
+    private val subscriptions = mutableListOf<Job>()
 
 
     init {
@@ -26,27 +30,40 @@ abstract class BaseViewModel<Event : UiEvent, State : UiState> {
 
     private fun subscribeInternalEvents() {
         coroutineScope.launch {
-            event.collect {
+            internalEvent.collect {
                 handleInternalEvent(it)
             }
         }
     }
 
-    fun<T: UiEvent> subscribeExternalEvents(externalEvent: MutableSharedFlow<T>) {
-        coroutineScope.launch {
+    fun subscribeExternalEvent(externalEvent: SharedFlow<ExternalEvent>) {
+         val event = coroutineScope.launch {
             externalEvent.collect {
                 handleExternalEvent(it)
             }
         }
+
+        subscriptions.add(event)
     }
 
-    abstract fun<T: UiEvent> handleExternalEvent(externalEvent: T)
+    fun unsubscribeExternalEvents() {
+        subscriptions.clear()
+    }
+
+    abstract fun handleExternalEvent(externalEvent: ExternalEvent)
 
     abstract fun handleInternalEvent(event : Event)
 
     fun setInternalEvent(event : Event) {
         val newEvent = event
-        coroutineScope.launch { _event.emit(newEvent) }
+        coroutineScope.launch { _internalEvent.emit(newEvent) }
+    }
+
+    protected fun setExternalEvent(event: ExternalEvent) {
+        val newEvent = event
+        coroutineScope.launch {
+            _externalEventEmitter.emit(newEvent)
+        }
     }
 
 

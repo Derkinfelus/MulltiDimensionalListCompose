@@ -2,14 +2,12 @@ package ui
 
 import base.*
 
-
-sealed class ChangeTable {
-    sealed class EditingType {
-        object Adding: EditingType()
-        object Changing: EditingType()
-    }
-    data class TableData(var name: String, var data: Int, var TableType: EditingType): ChangeTable()
+sealed class EditingType {
+    object Adding: EditingType()
+    object Changing: EditingType()
 }
+
+data class ChangeTable(var name: String, var data: Int, var tableType: EditingType)
 
 data class MultiDimensionalList(
     var name: String,

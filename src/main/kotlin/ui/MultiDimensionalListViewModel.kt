@@ -1,32 +1,52 @@
 package ui
 
+import androidx.compose.runtime.currentRecomposeScope
 import base.BaseViewModel
 import kotlin.random.Random
 
 class MultiDimensionalListViewModel :
     BaseViewModel<MultiDimensionalListInternalEvent, MultiDimensionalListState>() {
-    override fun createInitialState(): State {
-        return State(
-            MultiDimensionalListState.MultiDimensionalList("Undefined element", 0),
-            ChangeTableState.Adding()
+    override fun createInitialState(): MultiDimensionalListState {
+        setExternalEvent(
+            ExternalEvent.ListEvent(
+                MultiDimensionalListExternalEvent.OnAddClicked
+            )
+        )
+
+        return MultiDimensionalListState(
+            MultiDimensionalList("Undefined element", 0)
         )
     }
 
-    override fun handleEvent(event: Event) {
+    override fun handleInternalEvent(event: MultiDimensionalListInternalEvent) {
         when (event) {
-            is Event.OnAddClicked -> tableStateToAdd()
-            is Event.OnChangeClicked -> onChange()
-            is Event.OnDeleteClicked -> onDelete()
-            is Event.OnSubmitClicked -> onSubmit()
-        }
-    }
+            is MultiDimensionalListInternalEvent.OnAddClicked -> {
+                setExternalEvent(
+                    ExternalEvent.ListEvent(
+                        MultiDimensionalListExternalEvent.OnAddClicked
+                    )
+                )
+            }
+            is MultiDimensionalListInternalEvent.OnChangeClicked -> {
+                val state = currentState.multiDimensionalList
+                setExternalEvent(
+                    ExternalEvent.ListEvent(
+                        MultiDimensionalListExternalEvent.OnChangeClicked(state.name, state.data)
+                    )
+                )
+            }
+            is MultiDimensionalListInternalEvent.OnDeleteClicked -> {
+                val state = currentState.multiDimensionalList
+                setExternalEvent(
+                    ExternalEvent.ListEvent(
+                        MultiDimensionalListExternalEvent.OnDeleteClicked
+                    )
+                )
 
-    fun initState(name: String, data: Int, parent: MultiDimensionalListViewModel?) {
-        val state = currentState.listState as MultiDimensionalListState.MultiDimensionalList
-        state.let {
-            it.name = name
-            it.data = data
-            it.parent = parent
+                state.parent?.currentState?.multiDimensionalList?.lowerDimension?.remove(this) ?: run {
+                    println("Impossible to delete root element")
+                }
+            }
         }
     }
 
@@ -36,70 +56,41 @@ class MultiDimensionalListViewModel :
 
         for (i: Int in 0..primaryListsAmount) {
             val secondaryListAmount = Random.nextInt(0, 3)
-            val primaryList = onAdd("$counter-th primary list", counter)
+            val primaryList = MultiDimensionalListViewModel().apply {
+                currentState.multiDimensionalList.name = "$counter-th primaryList"
+                currentState.multiDimensionalList.data = counter
+                currentState.multiDimensionalList.parent = this
+            }
             counter++
             for (j: Int in 0..secondaryListAmount) {
-                primaryList.onAdd("$counter-th secondary list", counter)
+                val secondaryList = MultiDimensionalListViewModel().apply{
+                    currentState.multiDimensionalList.name = "$counter-th primaryList"
+                    currentState.multiDimensionalList.data = counter
+                    currentState.multiDimensionalList.parent = primaryList
+                }
+                primaryList.currentState.multiDimensionalList.lowerDimension.add(secondaryList)
                 counter++
             }
         }
     }
 
-    private fun tableStateToAdd() {
-        setState {
-            copy(
-                tableState = ChangeTableState.Adding()
-            )
-        }
-    }
-
-    private fun tableStateToChange() {
-        setState {
-            copy(
-                tableState = ChangeTableState.Changing()
-            )
-        }
-    }
-
-    private fun onAdd(name: String, data: Int) : MultiDimensionalListViewModel{
-        val toAdd = MultiDimensionalListViewModel().also { it.initState(name, data, this )}
-        val state = currentState.listState as MultiDimensionalListState.MultiDimensionalList
-        state.lowerDimension.add(toAdd)
-
-        return toAdd
-    }
-
-    private fun onChange() {
-        println("onchange invoked")
-        when (currentState.tableState) {
-            is ChangeTableState.Adding -> {
-                val name = (currentState.tableState as ChangeTableState.Adding).name
-                val data = (currentState.tableState as ChangeTableState.Adding).data
-
-                setState {
-                    copy(
-                        tableState = ChangeTableState.Changing(name, data)
-                    )
+    override fun handleExternalEvent(externalEvent: ExternalEvent) {
+        when (externalEvent) {
+            is ExternalEvent.TableEvent -> {
+                when (val event = externalEvent.event) {
+                    is ChangeTableExternalEvent.OnAddSubmitClicked -> {
+                        val newElem = MultiDimensionalListViewModel().apply {
+                            currentState.multiDimensionalList.name = event.name
+                            currentState.multiDimensionalList.data = event.data
+                            currentState.multiDimensionalList.parent = this
+                        }
+                        currentState.multiDimensionalList.lowerDimension.add(newElem)
+                    }
+                    is ChangeTableExternalEvent.OnChangeSubmitClicked -> {
+                        currentState.multiDimensionalList.name = event.newName
+                        currentState.multiDimensionalList.data = event.newData
+                    }
                 }
-            }
-        }
-    }
-
-    private fun onDelete() {
-        val state = currentState.listState as MultiDimensionalListState.MultiDimensionalList
-        val parentState = state.parent?.currentState!!.listState as MultiDimensionalListState.MultiDimensionalList
-        val res = parentState.lowerDimension.remove(this)
-        println("deleting element ${this.currentState.listState}, $res")
-    }
-
-    private fun onSubmit() {
-        when (val shit = currentState.tableState) {
-            is ChangeTableState.Adding -> {
-                onAdd(shit.name, shit.data)
-            }
-            is ChangeTableState.Changing -> {
-                val tmp2 = currentState.tableState as ChangeTableState.Changing
-                onChange(tmp2.name, tmp2.data)
             }
         }
     }
