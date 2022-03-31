@@ -2,8 +2,6 @@ package base
 
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import ui.ExternalEvent
-import ui.MultiDimensionalListViewModel
 
 abstract class BaseViewModel<Event : UiEvent, State : UiState> {
     var coroutineScope = CoroutineScope(Dispatchers.Main)

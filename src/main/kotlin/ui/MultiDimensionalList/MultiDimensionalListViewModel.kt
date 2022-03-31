@@ -1,9 +1,11 @@
-package ui
+package ui.MultiDimensionalList
 
 import base.BaseViewModel
+import base.ExternalEvent
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.collect
+import ui.*
+import ui.EditingTableEvents.EditingTableExternalEvent
 import kotlin.random.Random
 
 class MultiDimensionalListViewModel(private val defaultTable: EditingTableViewModel) :
@@ -72,12 +74,10 @@ class MultiDimensionalListViewModel(private val defaultTable: EditingTableViewMo
             is MultiDimensionalListInternalEvent.OnDeleteClicked -> {
                 setExternalEvent(
                     ExternalEvent.ListEvent(
-                        MultiDimensionalListExternalEvent.OnDeleteClicked
+                        MultiDimensionalListExternalEvent.OnDeleteClicked(this)
                     )
                 )
-                println("small mess")
-                println(currentState.list.parent?.currentState?.list?.name)
-                currentState.list.parent?.currentState?.list?.lowerDimension?.remove(this) ?: println("Big mess")
+                currentState.list.parent?.currentState?.list?.lowerDimension?.remove(this)
             }
         }
     }
@@ -105,9 +105,9 @@ class MultiDimensionalListViewModel(private val defaultTable: EditingTableViewMo
         }
     }
 
-    fun initLowerDimensions(table: EditingTableViewModel) {
+    fun initLowerDimensions() {
         val primaryListsAmount = Random.nextInt(0, 4)
-        var counter = 1
+        var counter : Long = 1
 
         for (i: Int in 0..primaryListsAmount) {
             val secondaryListAmount = Random.nextInt(0, 3)
