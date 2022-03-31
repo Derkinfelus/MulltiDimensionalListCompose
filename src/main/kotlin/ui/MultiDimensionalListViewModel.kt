@@ -1,77 +1,83 @@
 package ui
 
-import androidx.compose.runtime.currentRecomposeScope
-import androidx.compose.runtime.mutableStateOf
 import base.BaseViewModel
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.collect
 import kotlin.random.Random
 
-class MultiDimensionalListViewModel :
+class MultiDimensionalListViewModel(private val defaultTable: EditingTableViewModel) :
     BaseViewModel<MultiDimensionalListInternalEvent, MultiDimensionalListState>() {
-    override fun createInitialState(): MultiDimensionalListState {
-        return MultiDimensionalListState(
-            MultiDimensionalList(mutableStateOf("Undefined element"), mutableStateOf(0))
-        )
+
+    private var currentSubscription : Job = Job()
+
+    init {
+        currentSubscription.cancel()
+        defaultTable.subscribeExternalEvent(this.externalEvent)
     }
 
-    override fun createInitialExternalEvent(): ExternalEvent {
-        return ExternalEvent.ListEvent(
-            MultiDimensionalListExternalEvent.OnAddClicked
+
+    private fun switchSubscription() {
+        if (currentSubscription.isActive)
+            currentSubscription.cancel()
+        else
+            currentSubscription = coroutineScope.launch {
+                defaultTable.externalEvent.collect {
+                    handleExternalEvent(it)
+                }
+            }
+    }
+
+    override fun createInitialState(): MultiDimensionalListState {
+        return MultiDimensionalListState(
+            MultiDimensionalList("Undefined element", 0)
         )
     }
 
     override fun handleInternalEvent(event: MultiDimensionalListInternalEvent) {
         when (event) {
             is MultiDimensionalListInternalEvent.OnAddClicked -> {
+                currentState.list.isChanging = false
+                currentState.list.isAdding = !currentState.list.isAdding
+                if (currentState.list.isAdding and !currentSubscription.isActive or !currentState.list.isAdding)
+                    switchSubscription()
+
+
                 setExternalEvent(
                     ExternalEvent.ListEvent(
                         MultiDimensionalListExternalEvent.OnAddClicked
                     )
                 )
             }
+
             is MultiDimensionalListInternalEvent.OnChangeClicked -> {
-                val state = currentState.multiDimensionalList
-                setExternalEvent(
-                    ExternalEvent.ListEvent(
-                        MultiDimensionalListExternalEvent.OnChangeClicked(state.name.value, state.data.value)
+
+                currentState.list.isAdding = false
+                currentState.list.isChanging = !currentState.list.isChanging
+
+                if (currentState.list.isChanging and !currentSubscription.isActive or !currentState.list.isChanging)
+                    switchSubscription()
+                if (currentState.list.isChanging){
+                    setExternalEvent(
+                        ExternalEvent.ListEvent(
+                            MultiDimensionalListExternalEvent.OnChangeClicked(
+                                currentState.list.name,
+                                currentState.list.data
+                            )
+                        )
                     )
-                )
+                }
             }
+
             is MultiDimensionalListInternalEvent.OnDeleteClicked -> {
-                val state = currentState.multiDimensionalList
                 setExternalEvent(
                     ExternalEvent.ListEvent(
                         MultiDimensionalListExternalEvent.OnDeleteClicked
                     )
                 )
-
-                state.parent?.currentState?.multiDimensionalList?.lowerDimension?.remove(this) ?: run {
-                    println("Impossible to delete root element")
-                }
-            }
-        }
-    }
-
-    fun initLowerDimensions() {
-        val primaryListsAmount = Random.nextInt(0, 4)
-        var counter = 1
-
-        for (i: Int in 0..primaryListsAmount) {
-            val secondaryListAmount = Random.nextInt(0, 3)
-            val primaryList = MultiDimensionalListViewModel().apply {
-                currentState.multiDimensionalList.name = mutableStateOf("$counter-th primaryList")
-                currentState.multiDimensionalList.data = mutableStateOf(counter)
-                currentState.multiDimensionalList.parent = this
-            }
-            currentState.multiDimensionalList.lowerDimension.add(primaryList)
-            counter++
-            for (j: Int in 0..secondaryListAmount) {
-                val secondaryList = MultiDimensionalListViewModel().apply{
-                    currentState.multiDimensionalList.name = mutableStateOf("$counter-th primaryList")
-                    currentState.multiDimensionalList.data = mutableStateOf(counter)
-                    currentState.multiDimensionalList.parent = primaryList
-                }
-                primaryList.currentState.multiDimensionalList.lowerDimension.add(secondaryList)
-                counter++
+                println("small mess")
+                println(currentState.list.parent?.currentState?.list?.name)
+                currentState.list.parent?.currentState?.list?.lowerDimension?.remove(this) ?: println("Big mess")
             }
         }
     }
@@ -80,19 +86,46 @@ class MultiDimensionalListViewModel :
         when (externalEvent) {
             is ExternalEvent.TableEvent -> {
                 when (val event = externalEvent.event) {
-                    is ChangeTableExternalEvent.OnAddSubmitClicked -> {
-                        val newElem = MultiDimensionalListViewModel().apply {
-                            currentState.multiDimensionalList.name.value = event.name
-                            currentState.multiDimensionalList.data.value = event.data
-                            currentState.multiDimensionalList.parent = this
+                    is EditingTableExternalEvent.OnSubmitClicked -> {
+                        if (currentState.list.isAdding) {
+                            val newElem = MultiDimensionalListViewModel(defaultTable).also {
+                                it.currentState.list.name = event.name
+                                it.currentState.list.data = event.data
+                                it.currentState.list.parent = this
+                            }
+                            currentState.list.lowerDimension.add(newElem)
                         }
-                        currentState.multiDimensionalList.lowerDimension.add(newElem)
-                    }
-                    is ChangeTableExternalEvent.OnChangeSubmitClicked -> {
-                        currentState.multiDimensionalList.name.value = event.newName
-                        currentState.multiDimensionalList.data.value = event.newData
+                        else {
+                            currentState.list.name = event.name
+                            currentState.list.data = event.data
+                        }
                     }
                 }
+            }
+        }
+    }
+
+    fun initLowerDimensions(table: EditingTableViewModel) {
+        val primaryListsAmount = Random.nextInt(0, 4)
+        var counter = 1
+
+        for (i: Int in 0..primaryListsAmount) {
+            val secondaryListAmount = Random.nextInt(0, 3)
+            val primaryList = MultiDimensionalListViewModel(defaultTable).also {
+                it.currentState.list.name = "$counter-th primary list"
+                it.currentState.list.data = counter
+                it.currentState.list.parent = this
+            }
+            currentState.list.lowerDimension.add(primaryList)
+            counter++
+            for (j: Int in 0..secondaryListAmount) {
+                val secondaryList = MultiDimensionalListViewModel(defaultTable).apply{
+                    currentState.list.name = "$counter-th secondary list"
+                    currentState.list.data = counter
+                    currentState.list.parent = primaryList
+                }
+                primaryList.currentState.list.lowerDimension.add(secondaryList)
+                counter++
             }
         }
     }
